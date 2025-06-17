@@ -36,47 +36,25 @@ Add the following entries to your `composer.json` in the project root:
             "type": "vcs",
             "url": "https://github.com/n0vedad/ddev-commands-collection"
         }
-    ],
-    "scripts": {
-        "post-install-cmd": [
-            "Kmi\\DdevCommandsCollection\\Composer\\Scripts::updateCommands"
-        ],
-        "post-update-cmd": [
-            "Kmi\\DdevCommandsCollection\\Composer\\Scripts::updateCommands"
-        ]
-    }
+    ]
 }
 ```
 
 ### Step 2: Install DCC
 
 ```bash
-composer require --dev n0vedad/ddev-commands-collection
+ddev composer require --dev kmi/ddev-commands-collection
 ```
-
-### Step 3: Optional Dependencies
-
-For full functionality, install:
-
-```bash
-composer require --dev helhum/typo3-console
-```
-
-Note: typo3-console is required for database synchronization (`ddev sync`).
 
 ## Usage
 
-After installation, all commands are available. A typical workflow for a new project:
+After installation, all commands are immediately available. A typical workflow for a new project:
 
 ```bash
 # Initialize TYPO3, sync database and build assets
 ddev init
-
-# Individual steps:
-ddev sync stage      # Get database from stage system
-ddev theme           # Build frontend assets
-ddev cc              # Clear cache
 ```
+For other individual steps see Available Commands.
 
 ## Configuration
 
@@ -132,9 +110,19 @@ Ensure DDEV is correctly installed. See [DDEV Documentation](https://ddev.readth
 
 Check if the Composer scripts are correctly entered in your `composer.json` (see Step 1).
 
-### "helhum/typo3-console is required but not installed"
+### Database synchronization fails
 
-This message appears with `ddev sync`. Install typo3-console as described in Step 3.
+The `ddev sync` command requires `helhum/typo3-console` to function properly. This dependency is automatically installed with the DCC package. If you encounter sync issues, verify that the package is installed by running:
+
+```bash
+ddev composer show helhum/typo3-console
+```
+
+If the package is missing, reinstall the DCC:
+
+```bash
+ddev composer reinstall kmi/ddev-commands-collection
+```
 
 ### Changed commands are overwritten
 
