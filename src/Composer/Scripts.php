@@ -5,6 +5,7 @@ namespace Kmi\DdevCommandsCollection\Composer;
 use Composer\Composer;
 use Composer\IO\IOInterface;
 use Composer\Script\Event;
+use Composer\Plugin\PluginInterface;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
@@ -19,7 +20,7 @@ use Symfony\Component\Yaml\Yaml;
  * @author Lucas Dämmig <lucas.daemmig@rasani.de>
  * @package Kmi\DdevCommandsCollection\Composer
  */
-class Scripts implements EventSubscriberInterface
+class Scripts implements PluginInterface, EventSubscriberInterface
 {
     /**
      * Keywords that mark a file to be ignored during update
@@ -70,6 +71,30 @@ class Scripts implements EventSubscriberInterface
         return [
             PackageEvents::PRE_PACKAGE_UNINSTALL => 'onPrePackageUninstall',
         ];
+    }
+
+    /**
+     * Required by PluginInterface - called when plugin is activated
+     */
+    public function activate(Composer $composer, IOInterface $io): void
+    {
+        // Nothing special needed here for our use case
+    }
+
+    /**
+     * Required by PluginInterface - called when plugin is deactivated
+     */
+    public function deactivate(Composer $composer, IOInterface $io): void
+    {
+        // Nothing special needed here for our use case
+    }
+
+    /**
+     * Required by PluginInterface - called when plugin is uninstalled
+     */
+    public function uninstall(Composer $composer, IOInterface $io): void
+    {
+        // Nothing special needed here for our use case
     }
 
     /**
