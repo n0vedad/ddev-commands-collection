@@ -18,6 +18,7 @@ printf "${reset}${cyan}[DCC]${reset} DDEV Commands Collection\n"
 echo
 echo -e "${magenta}[CONFIG]${reset}"
 
+# Prüfung des aktuellen Zustands der Installation
 TYPO3_INITIALIZED=false
 if [ -f "${composerPathApp}/vendor/bin/typo3" ] && [ -f "${composerPathApp}/config/system/settings.php" ]; then
     TYPO3_INITIALIZED=true
@@ -30,11 +31,62 @@ if [ -d "${composerPathDeployment}/node_modules" ] && [ -d "${composerPathDeploy
     echo -e "${yellow}[INFO]${reset} Assets appear to be already built"
 fi
 
-read -p $"Initialize TYPO3 instance? (y|N) " INIT_TYPO3
-read -p $"Sync database (stage-to-local)? (y|N) " SYNC_DB
-read -p $"Build assets? (y|N) " INSTALL_ASSETS
+# Menü zur Auswahl der Aktionen anzeigen
+echo
+echo -e "${cyan}[SETUP MENU]${reset} Please select the actions you want to perform:"
+echo -e "${bold}1)${reset} Initialize TYPO3 instance (composer install, TYPO3 setup)"
+echo -e "${bold}2)${reset} Sync database from stage system (requires TYPO3 Console)"
+echo -e "${bold}3)${reset} Build frontend assets (npm install & build)"
+echo -e "${bold}4)${reset} Complete setup (all of the above)"
+echo -e "${bold}0)${reset} Skip setup and exit"
+echo
 
-if [[ $INIT_TYPO3 =~ ^[Yy]$ ]]
+# Benutzereingabe verarbeiten
+while true; do
+    read -p "Enter your choice (0-4): " choice
+    
+    # Eingabe validieren
+    case $choice in
+        0)
+            echo -e "${blue}[INFO]${reset} Setup skipped by user"
+            exit 0
+            ;;
+        1)
+            INIT_TYPO3=true
+            SYNC_DB=false
+            INSTALL_ASSETS=false
+            break
+            ;;
+        2)
+            INIT_TYPO3=false
+            SYNC_DB=true
+            INSTALL_ASSETS=false
+            break
+            ;;
+        3)
+            INIT_TYPO3=false
+            SYNC_DB=false
+            INSTALL_ASSETS=true
+            break
+            ;;
+        4)
+            INIT_TYPO3=true
+            SYNC_DB=true
+            INSTALL_ASSETS=true
+            break
+            ;;
+        *)
+            echo -e "${red}[ERROR]${reset} Invalid choice. Please enter a number between 0 and 4."
+            continue
+            ;;
+    esac
+done
+
+echo
+echo -e "${blue}[INFO]${reset} Starting selected operations..."
+
+# TYPO3 Installation durchführen
+if [[ $INIT_TYPO3 == true ]]
 then
     if [ "$TYPO3_INITIALIZED" = true ]; then
         echo -e "${yellow}[WARN]${reset} TYPO3 is already initialized, skipping initialization"
@@ -45,6 +97,7 @@ then
         echo -e "${blue}[INFO]${reset} Install TYPO3 instance"
         cd ${composerPathApp}
         
+        # Umgebungsdatei erstellen falls vorhanden
         if [ -f ".env.ddev.dist" ]; then
             cp .env.ddev.dist .env 2>/dev/null && echo -e "${green}[OK]${reset} .env file created from .env.ddev.dist"
         elif [ -f ".env.example" ]; then
@@ -67,47 +120,56 @@ then
             --admin-username=admin \
             --admin-user-password=!Admin1234 \
             --admin-email=admin@example.com \
-            --project-name="DDEV TYPO3 Project" \
+            --project-name="${DDEV_SITENAME}.${DDEV_TLD}" \
             --create-site=https://${DDEV_SITENAME}.${DDEV_TLD}
             
         echo -e "${green}[OK]${reset} TYPO3 instance installed"
     fi
 fi
 
-if [[ $SYNC_DB =~ ^[Yy]$ ]]
+# Datenbank-Synchronisation durchführen
+if [[ $SYNC_DB == true ]]
 then
-    if [ ! -f "${composerPathApp}/vendor/bin/typo3" ] || ! composer show helhum/typo3-console &>/dev/null; then
-        echo -e "${red}[ERROR]${reset} helhum/typo3-console is required for database sync but not installed"
-        echo -e "${yellow}[INFO]${reset} Please install it with: composer require helhum/typo3-console"
-        exit 1
-    fi
-    
     echo -e "${blue}[INFO]${reset} Sync remote database into local database"
     printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}db_sync_tool -f ${composerPathDeployment}/../deployment/db-sync-tool/sync-${defaultSyncSystem}-to-local.${defaultSyncFileEnding}${reset}\n"
     db_sync_tool -f ${composerPathDeployment}/../deployment/db-sync-tool/sync-${defaultSyncSystem}-to-local.${defaultSyncFileEnding}
 
+    # Datenbank-Schema aktualisieren und Cache leeren
     ${composerPathApp}/vendor/bin/typo3 database:updateschema
     ${composerPathApp}/vendor/bin/typo3 cache:flush
+    
+    # FAQ-Sektion für Sync-Probleme anzeigen
     sh "$(dirname "$0")/../faq/dcc-faq-web-sync.sh"
 fi
 
-if [[ $INSTALL_ASSETS =~ ^[Yy]$ ]]
+# Frontend-Assets erstellen
+if [[ $INSTALL_ASSETS == true ]]
 then
     if [ "$ASSETS_BUILT" = true ]; then
         echo -e "${yellow}[WARN]${reset} Assets appear to be already built"
-        read -p $"Force rebuild? (y|N) " FORCE_REBUILD
-        if [[ ! $FORCE_REBUILD =~ ^[Yy]$ ]]; then
-            echo -e "${blue}[INFO]${reset} Skipping asset build"
-        else
-            echo -e "${blue}[INFO]${reset} Force rebuilding assets"
-            cd ${composerPathDeployment}
-            rm -rf node_modules
-            printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm ci${reset}\n"
-            npm ci
-            printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm run build${reset}\n"
-            npm run build
-            echo -e "${green}[OK]${reset} Assets rebuilt"
-        fi
+        while true; do
+            read -p "Force rebuild? (y/N): " force_rebuild
+            case $force_rebuild in
+                [Yy]*)
+                    echo -e "${blue}[INFO]${reset} Force rebuilding assets"
+                    cd ${composerPathDeployment}
+                    rm -rf node_modules
+                    printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm ci${reset}\n"
+                    npm ci
+                    printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm run build${reset}\n"
+                    npm run build
+                    echo -e "${green}[OK]${reset} Assets rebuilt"
+                    break
+                    ;;
+                [Nn]*|"")
+                    echo -e "${blue}[INFO]${reset} Skipping asset build"
+                    break
+                    ;;
+                *)
+                    echo -e "${red}[ERROR]${reset} Please answer yes (y) or no (n)."
+                    ;;
+            esac
+        done
     else
         echo -e "${blue}[INFO]${reset} Install frontend dependencies"
         cd ${composerPathDeployment}
@@ -121,4 +183,16 @@ then
 fi
 
 echo
-echo -e "${green}TYPO3 instance successfully initialized${reset}"
+echo -e "${green}[SUCCESS]${reset} TYPO3 setup completed successfully!"
+
+# Zusammenfassung der durchgeführten Aktionen anzeigen
+echo -e "${cyan}[SUMMARY]${reset} Completed actions:"
+if [[ $INIT_TYPO3 == true ]]; then
+    echo -e "  ✓ TYPO3 instance initialized"
+fi
+if [[ $SYNC_DB == true ]]; then
+    echo -e "  ✓ Database synchronized from ${defaultSyncSystem}"
+fi
+if [[ $INSTALL_ASSETS == true ]]; then
+    echo -e "  ✓ Frontend assets built"
+fi
