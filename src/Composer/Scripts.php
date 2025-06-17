@@ -229,14 +229,14 @@ class Scripts implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Remove the TYPO3 command files from the project (reverse of copyFiles)
+     * Remove the TYPO3 command files from the project (exact reverse of copyFiles)
      */
     protected static function removeFiles(): void
     {
         static::$io->write('<fg=cyan>[DCC]</> Remove <options=bold>TYPO3 DDEV</> command files from project', false);
-        $countRemoved = 0;
+        $totalRemoved = 0;
 
-        // Check for custom commands to ignore (same logic as in copyFiles)
+        // First, check for custom commands to ignore (same logic as copyFiles)
         $commandsPath = static::$config['ddevDir'] . '/commands/';
         $files = glob($commandsPath . '*/dcc-*');
         $files[] = $commandsPath . 'dcc-config.sh';
@@ -257,7 +257,7 @@ class Scripts implements PluginInterface, EventSubscriberInterface
             }
         }
 
-        // Remove TYPO3 specific command files (reverse of what copyFiles does)
+        // REVERSE STEP 3: Remove TYPO3 specific command files (exact reverse of copyFiles step 3)
         $distCommands = static::$config['distDir'] . '/typo3/';
         
         $files = glob($distCommands . '*/dcc-*');
@@ -266,6 +266,7 @@ class Scripts implements PluginInterface, EventSubscriberInterface
         foreach($files as $fullPathFilename) {
             $relativePathFilename = str_replace($distCommands, '', $fullPathFilename);
             
+            // Only remove if not in ignore list (same logic as copyFiles)
             if (is_null(static::$config['ignoreFiles']) || !in_array($relativePathFilename, static::$config['ignoreFiles'])) {
                 $targetFilePath = static::$config['ddevDir'] . '/commands/' . $relativePathFilename;
                 
@@ -276,39 +277,74 @@ class Scripts implements PluginInterface, EventSubscriberInterface
                     } else {
                         static::$fs->remove($targetFilePath);
                     }
-                    $countRemoved++;
+                    $totalRemoved++;
                 }
             }
         }
 
-        // Remove static general files (reverse of copyFiles)
-        $generalStaticFiles = [
-            'scripts',
-            'faq', 
-            'README.md',
-            '.gitignore'
-        ];
+        // REVERSE STEP 2 & 1: Remove files that were copied by mirror operations
+        // We need to find out exactly what was copied by the mirror operations
         
-        foreach ($generalStaticFiles as $item) {
-            $itemPath = static::$config['ddevDir'] . '/commands/' . $item;
-            if (file_exists($itemPath)) {
-                static::$fs->remove($itemPath);
-                $countRemoved++;
+        // Get list of files that would be copied by general/static mirror
+        $generalStaticSource = static::$config['distDir'] . '/general/static';
+        if (is_dir($generalStaticSource)) {
+            $staticIterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($generalStaticSource, \RecursiveDirectoryIterator::SKIP_DOTS)
+            );
+            
+            foreach ($staticIterator as $file) {
+                $relativePath = str_replace($generalStaticSource . '/', '', $file->getPathname());
+                $targetPath = static::$config['ddevDir'] . '/commands/' . $relativePath;
+                
+                if (file_exists($targetPath)) {
+                    if (is_link($targetPath)) {
+                        unlink($targetPath);
+                    } else {
+                        static::$fs->remove($targetPath);
+                    }
+                    $totalRemoved++;
+                }
+            }
+            
+            // Remove empty directories that were created by mirror
+            $staticDirs = ['scripts', 'faq', 'host'];
+            foreach ($staticDirs as $dir) {
+                $dirPath = static::$config['ddevDir'] . '/commands/' . $dir;
+                if (is_dir($dirPath) && count(scandir($dirPath)) == 2) { // Only . and ..
+                    rmdir($dirPath);
+                }
+            }
+        }
+        
+        // Get list of files that would be copied by general/initial mirror
+        // (but only remove if they're not overwritten by static and not custom)
+        $generalInitialSource = static::$config['distDir'] . '/general/initial';
+        if (is_dir($generalInitialSource)) {
+            $initialIterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($generalInitialSource, \RecursiveDirectoryIterator::SKIP_DOTS)
+            );
+            
+            foreach ($initialIterator as $file) {
+                $relativePath = str_replace($generalInitialSource . '/', '', $file->getPathname());
+                $targetPath = static::$config['ddevDir'] . '/commands/' . $relativePath;
+                
+                // Only remove if it exists and wasn't already removed by static cleanup
+                if (file_exists($targetPath)) {
+                    if (is_link($targetPath)) {
+                        unlink($targetPath);
+                    } else {
+                        static::$fs->remove($targetPath);
+                    }
+                    $totalRemoved++;
+                }
             }
         }
 
-        // Remove host commands
-        $hostCommandPath = static::$config['ddevDir'] . '/commands/host/dcc-docker-deployment-update';
-        if (file_exists($hostCommandPath)) {
-            static::$fs->remove($hostCommandPath);
-            $countRemoved++;
-        }
-
         $countIgnored = is_null(static::$config['ignoreFiles']) ? 0 : count(static::$config['ignoreFiles']);
-        $infoIgnored = is_null(static::$config['ignoreFiles']) ? '' : implode(', ', static::$config['ignoreFiles']);
-
-        $infoMessage = "<fg=green>$countRemoved</> file(s) removed";
+        
+        $infoMessage = "<fg=green>$totalRemoved</> file(s) removed";
         if ($countIgnored) {
+            $infoIgnored = implode(', ', static::$config['ignoreFiles']);
             $infoMessage .= ", <fg=yellow>$countIgnored</> file(s) kept: $infoIgnored";
         }
 
