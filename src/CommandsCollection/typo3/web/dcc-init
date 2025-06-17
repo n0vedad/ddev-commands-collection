@@ -17,49 +17,108 @@ printf "${reset}${cyan}[DCC]${reset} DDEV Commands Collection\n"
 
 echo
 echo -e "${magenta}[CONFIG]${reset}"
-read -p $"Initialize TYPO3 instanz? (y|N) " INIT_TYPO3
+
+TYPO3_INITIALIZED=false
+if [ -f "${composerPathApp}/vendor/bin/typo3" ] && [ -f "${composerPathApp}/config/system/settings.php" ]; then
+    TYPO3_INITIALIZED=true
+    echo -e "${yellow}[INFO]${reset} TYPO3 appears to be already initialized"
+fi
+
+ASSETS_BUILT=false
+if [ -d "${composerPathDeployment}/node_modules" ] && [ -d "${composerPathDeployment}/public/_assets" ]; then
+    ASSETS_BUILT=true
+    echo -e "${yellow}[INFO]${reset} Assets appear to be already built"
+fi
+
+read -p $"Initialize TYPO3 instance? (y|N) " INIT_TYPO3
 read -p $"Sync database (stage-to-local)? (y|N) " SYNC_DB
 read -p $"Build assets? (y|N) " INSTALL_ASSETS
 
 if [[ $INIT_TYPO3 =~ ^[Yy]$ ]]
 then
-    echo -e "${blue}[INFO]${reset} Install TYPO3 instance"
-    cd ${composerPathApp}
-    cp .env.ddev.dist .env
-    echo -e "${blue}[INFO]${reset} Install dependencies"
-    printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}composer install${reset}\n"
-    composer install
+    if [ "$TYPO3_INITIALIZED" = true ]; then
+        echo -e "${yellow}[WARN]${reset} TYPO3 is already initialized, skipping initialization"
+        echo -e "${blue}[INFO]${reset} Running composer install to ensure all dependencies are present"
+        cd ${composerPathApp}
+        composer install
+    else
+        echo -e "${blue}[INFO]${reset} Install TYPO3 instance"
+        cd ${composerPathApp}
+        
+        if [ -f ".env.ddev.dist" ]; then
+            cp .env.ddev.dist .env 2>/dev/null && echo -e "${green}[OK]${reset} .env file created from .env.ddev.dist"
+        elif [ -f ".env.example" ]; then
+            cp .env.example .env 2>/dev/null && echo -e "${green}[OK]${reset} .env file created from .env.example"
+        fi
+        
+        echo -e "${blue}[INFO]${reset} Install dependencies"
+        printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}composer install${reset}\n"
+        composer install
 
-    echo -e "${blue}[INFO]${reset} Setup TYPO3"
-    printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}php vendor/bin/typo3cms install:setup --no-interaction --skip-integrity-check${reset}\n"
-    php vendor/bin/typo3cms install:setup --no-interaction --skip-integrity-check
-
-    echo -e "${green}[OK]${reset} TYPO3 instance installed"
+        echo -e "${blue}[INFO]${reset} Setup TYPO3"
+        printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}php vendor/bin/typo3 setup --no-interaction --force${reset}\n"
+        php vendor/bin/typo3 setup --no-interaction --force \
+            --server-type=apache \
+            --driver=mysqli \
+            --host=db \
+            --dbname=db \
+            --username=db \
+            --password=db \
+            --admin-username=admin \
+            --admin-user-password=!Admin1234 \
+            --admin-email=admin@example.com \
+            --project-name="DDEV TYPO3 Project" \
+            --create-site=https://${DDEV_SITENAME}.${DDEV_TLD}
+            
+        echo -e "${green}[OK]${reset} TYPO3 instance installed"
+    fi
 fi
 
 if [[ $SYNC_DB =~ ^[Yy]$ ]]
 then
+    if [ ! -f "${composerPathApp}/vendor/bin/typo3" ] || ! composer show helhum/typo3-console &>/dev/null; then
+        echo -e "${red}[ERROR]${reset} helhum/typo3-console is required for database sync but not installed"
+        echo -e "${yellow}[INFO]${reset} Please install it with: composer require helhum/typo3-console"
+        exit 1
+    fi
+    
     echo -e "${blue}[INFO]${reset} Sync remote database into local database"
     printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}db_sync_tool -f ${composerPathDeployment}/../deployment/db-sync-tool/sync-${defaultSyncSystem}-to-local.${defaultSyncFileEnding}${reset}\n"
     db_sync_tool -f ${composerPathDeployment}/../deployment/db-sync-tool/sync-${defaultSyncSystem}-to-local.${defaultSyncFileEnding}
 
-    ${composerPathApp}/bin/typo3cms database:updateschema
-    ${composerPathApp}/bin/typo3cms cache:flush
-    # display faq section
+    ${composerPathApp}/vendor/bin/typo3 database:updateschema
+    ${composerPathApp}/vendor/bin/typo3 cache:flush
     sh "$(dirname "$0")/../faq/dcc-faq-web-sync.sh"
 fi
 
-
 if [[ $INSTALL_ASSETS =~ ^[Yy]$ ]]
 then
-    echo -e "${blue}[INFO]${reset} Install frontend dependencies"
-    cd ${composerPathDeployment}
-    printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm ci${reset}\n"
-    npm ci
-    echo -e "${blue}[INFO]${reset} Build assets"
-    printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm run build${reset}\n"
-    npm run build
-    echo -e "${green}[OK]${reset} Assets installed"
+    if [ "$ASSETS_BUILT" = true ]; then
+        echo -e "${yellow}[WARN]${reset} Assets appear to be already built"
+        read -p $"Force rebuild? (y|N) " FORCE_REBUILD
+        if [[ ! $FORCE_REBUILD =~ ^[Yy]$ ]]; then
+            echo -e "${blue}[INFO]${reset} Skipping asset build"
+        else
+            echo -e "${blue}[INFO]${reset} Force rebuilding assets"
+            cd ${composerPathDeployment}
+            rm -rf node_modules
+            printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm ci${reset}\n"
+            npm ci
+            printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm run build${reset}\n"
+            npm run build
+            echo -e "${green}[OK]${reset} Assets rebuilt"
+        fi
+    else
+        echo -e "${blue}[INFO]${reset} Install frontend dependencies"
+        cd ${composerPathDeployment}
+        printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm ci${reset}\n"
+        npm ci
+        echo -e "${blue}[INFO]${reset} Build assets"
+        printf "${reset}${cyan}[DCC]${reset}${reset}<web> ${black}npm run build${reset}\n"
+        npm run build
+        echo -e "${green}[OK]${reset} Assets installed"
+    fi
 fi
+
 echo
 echo -e "${green}TYPO3 instance successfully initialized${reset}"

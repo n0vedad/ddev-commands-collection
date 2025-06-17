@@ -3,11 +3,15 @@
   "description": "Collection of reusable DDEV commands",
   "license": "MIT",
   "type": "project",
-  "version": "0.2.16",
+  "version": "0.3",
   "authors": [
     {
       "name": "Konrad Michalik",
       "email": "hello@konradmichalik.eu"
+    },
+    {
+      "name": "Lucas Dämmig",
+      "email": "lucas.daemmig@rasani.de"
     }
   ],
   "config": {
@@ -16,10 +20,11 @@
     "classmap-authoritative": true
   },
   "require": {
-    "composer-plugin-api": "^1.1 || ^2.0",
-    "composer/composer": "^1.9 || ^2.0",
+    "composer-plugin-api": "^2.0",
+    "composer/composer": "^2.0",
     "symfony/filesystem": "*",
-    "symfony/yaml": "*"
+    "symfony/yaml": "*",
+    "helhum/typo3-console": "^8.2"
   },
   "autoload": {
     "psr-4": {

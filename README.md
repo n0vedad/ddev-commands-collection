@@ -1,119 +1,148 @@
-DDEV Commands Collection
-========================
+# TYPO3 DDEV Commands Collection
 
-<p align="center"><img src="./doc/Images/dcc.svg" alt="DCC" width="150">
-</p>
+A specialized collection of DDEV commands for TYPO3 projects (version 12.4+).
 
-The __DCC__ (DDEV Commands Collection) provides several predefined [DDEV](https://ddev.readthedocs.io/en/stable/) commands for different project types.
+This fork of the original [DDEV Commands Collection](https://github.com/jackd248/ddev-commands-collection) focuses exclusively on TYPO3 and provides optimized workflows for modern TYPO3 development.
 
-- [Intention](#intention)
-- [Installation](#installation)
-- [Impact](#impact)
+## Features
 
-The project comes with an automatic copy and update process of the commands as well as several customization options. So the DDEV commands in your local project under `.ddev/commands` will always keep updated extended commands.
+The TYPO3 DDEV Commands Collection (DCC) automates recurring tasks in TYPO3 development. After installation, extended DDEV commands are available that combine multiple individual steps into efficient workflows.
 
-For more usage information see the additional [README.md](src/CommandsCollection/general/static/README.md).
+### Available Commands
 
+| Befehl                    | Beschreibung                                      | Beispiel                            |
+|---------------------------|---------------------------------------------------|-------------------------------------|
+| `ddev init`               | Initialisiert eine komplette TYPO3-Installation   | `ddev init`                         |
+| `ddev cc`                 | Cache leeren (Kurzform)                           | `ddev cc` oder `ddev cc -g all`     |
+| `ddev console`            | TYPO3 Console-Befehle ausführen                   | `ddev console cache:flush`          |
+| `ddev composer:app`       | Composer im App-Verzeichnis ausführen             | `ddev composer:app install`         |
+| `ddev composer:deployment`| Composer im Deployment-Verzeichnis ausführen      | `ddev composer:deployment update`   |
+| `ddev sync`               | Datenbank vom Remote-System synchronisieren       | `ddev sync stage`                   |
+| `ddev theme`              | Frontend-Assets bauen                             | `ddev theme` oder `ddev theme watch`|
+| `ddev log:app`            | Applikations-Log anzeigen (mit Farbcodierung)     | `ddev log:app -f`                   |
+| `ddev release`            | Neue Version erstellen                            | `ddev release 1.2.3`                |
 
-<a name="intention"></a>
-## Intention
-
-The main goals for the DCC are:
-
-- reusable commands in several projects
-- reusable functionalities within the commands
-- standardization of commands in usage and style
-- simplification and transparency of command execution
-- customisation of the automated DCC process
-
-<a name="installation"></a>
 ## Installation
 
-Define one of the following project type within your `composer.json`:
-- [TYPO3](src/CommandsCollection/typo3)
-- [Symfony](src/CommandsCollection/symfony)
-- [Drupal](src/CommandsCollection/drupal)
+### Step 1: Prepare Composer
+
+Add the following entries to your `composer.json` in the project root:
 
 ```json
-"config": {
-  "dcc-type": "Symfony"
-}
-```
-
-Add the post scripts in the composer.json:
-
-```json
-"scripts": {
-    "post-install-cmd": [
-      "Kmi\\DdevCommandsCollection\\Composer\\Scripts::updateCommands"
+{
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/n0vedad/ddev-commands-collection"
+        }
     ],
-    "post-update-cmd": [
-      "Kmi\\DdevCommandsCollection\\Composer\\Scripts::updateCommands"
-    ]
+    "scripts": {
+        "post-install-cmd": [
+            "Kmi\\DdevCommandsCollection\\Composer\\Scripts::updateCommands"
+        ],
+        "post-update-cmd": [
+            "Kmi\\DdevCommandsCollection\\Composer\\Scripts::updateCommands"
+        ]
+    }
 }
 ```
 
-Install from [packagist](https://packagist.org/packages/kmi/ddev-commands-collection) via composer:
+### Step 2: Install DCC
 
 ```bash
-$ composer req kmi/ddev-commands-collection
+composer require --dev n0vedad/ddev-commands-collection
 ```
 
-Add the following files to your local project git:
+### Step 3: Optional Dependencies
+
+For full functionality, install:
 
 ```bash
-.ddev/
-  commands/
-    .gitignore
-    dcc-config.sh
+composer require --dev helhum/typo3-console
 ```
 
-__Note__: If your project structure differs from the example below and your `composer.json` and the ddev directory aren't on the same level, you can define the relative path to the ddev directory inside your `composer.json` like the following example:
-```json
-"config": {
-  "ddev-dir": "./../.ddev"
-}
+Note: typo3-console is required for database synchronization (`ddev sync`).
+
+## Usage
+
+After installation, all commands are available. A typical workflow for a new project:
+
+```bash
+# Initialize TYPO3, sync database and build assets
+ddev init
+
+# Individual steps:
+ddev sync stage      # Get database from stage system
+ddev theme           # Build frontend assets
+ddev cc              # Clear cache
 ```
 
+## Configuration
 
-<a name="impact"></a>
-## Impact
+### .ddev/commands/dcc-config.sh
 
-The automatic DCC process affects the following files/directories (marked as **bold**) inside your project (example structure for a project):
+This file contains paths and default values:
 
+```bash
+# Path to TYPO3 installation
+composerPathApp="/var/www/html"
 
-- `project/`
-  - `.ddev/`
-    - `commands/`
-      - `web`
-        - **dcc-cc**
-        - **dcc-composer-app**
-        - **dcc-composer-deployment**
-        - **dcc-console**
-        - **dcc-init**
-        - **dcc-release**
-        - **dcc-sync**
-        - **dcc-theme**
-        - `...`
-      - **faq**/
-        - **dcc-faq-web-sync.sh**
-        - `...`
-      - **scripts**/
-        - **dcc-colors.sh**
-        - `...`
-      - **.gitignore**
-      - **dcc-config.yaml**
-      - **dcc-config.sh**
-      - **README.md**
-      - `...`
-    - `config.yaml`
-    - `...`
-  - `app/` -- *Application directory*
-    - `composer.json`
-    - `composer.lock`
-    - `...`
-  - `composer.json` -- *Adapted composer file for DCC*
-  - `composer.lock`
-  - `...`
-           
-See the additional [README.md](src/CommandsCollection/general/static/README.md) for information about adjustments.
+# Default system for database sync
+defaultSyncSystem="stage"
+
+# Log path for log:app command
+logPathApp="/var/www/html/var/log/"
+```
+
+### .ddev/commands/dcc-config.yaml
+
+Exclude commands from automatic updates:
+
+```yaml
+ignoreFiles:
+  - web/dcc-custom-command
+  - host/dcc-special-script
+```
+
+## Protecting Custom Commands
+
+To protect your own DDEV commands from being overwritten, add one of the following comments to your file:
+
+```bash
+## <keep/>
+## <ignore/>
+## <custom/>
+```
+
+## Requirements
+
+- TYPO3 12.4 or higher
+- DDEV (tested with version 1.21+)
+- PHP 8.1 or higher
+- Composer 2.0 or higher
+
+## Troubleshooting
+
+### "ddev: command not found"
+
+Ensure DDEV is correctly installed. See [DDEV Documentation](https://ddev.readthedocs.io/).
+
+### Commands are not copied
+
+Check if the Composer scripts are correctly entered in your `composer.json` (see Step 1).
+
+### "helhum/typo3-console is required but not installed"
+
+This message appears with `ddev sync`. Install typo3-console as described in Step 3.
+
+### Changed commands are overwritten
+
+Add `## <keep/>` to your customized commands to protect them from updates.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file.
+
+## Credits
+
+Based on the work of [Konrad Michalik](https://github.com/jackd248) and his [DDEV Commands Collection](https://github.com/jackd248/ddev-commands-collection) project.
