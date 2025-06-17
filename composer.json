@@ -2,8 +2,8 @@
   "name": "kmi/ddev-commands-collection",
   "description": "Collection of reusable DDEV commands",
   "license": "MIT",
-  "type": "project",
-  "version": "0.3",
+  "type": "composer-plugin",
+  "version": "0.3.1",
   "authors": [
     {
       "name": "Konrad Michalik",
@@ -30,6 +30,17 @@
     "psr-4": {
       "Kmi\\DdevCommandsCollection\\": "src/"
     }
+  },
+  "extra": {
+    "class": "Kmi\\DdevCommandsCollection\\Composer\\Scripts"
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "Kmi\\DdevCommandsCollection\\Composer\\Scripts::updateCommands"
+    ],
+    "post-update-cmd": [
+      "Kmi\\DdevCommandsCollection\\Composer\\Scripts::updateCommands"
+    ]
   },
   "minimum-stability": "stable"
 }

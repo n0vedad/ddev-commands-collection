@@ -5,6 +5,10 @@ namespace Kmi\DdevCommandsCollection\Composer;
 use Composer\Composer;
 use Composer\IO\IOInterface;
 use Composer\Script\Event;
+use Composer\EventDispatcher\EventSubscriberInterface;
+use Composer\Installer\PackageEvent;
+use Composer\Installer\PackageEvents;
+use Composer\DependencyResolver\Operation\UninstallOperation;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Yaml\Yaml;
 
@@ -15,7 +19,7 @@ use Symfony\Component\Yaml\Yaml;
  * @author Lucas Dämmig <lucas.daemmig@rasani.de>
  * @package Kmi\DdevCommandsCollection\Composer
  */
-class Scripts
+class Scripts implements EventSubscriberInterface
 {
     /**
      * Keywords that mark a file to be ignored during update
@@ -57,6 +61,39 @@ class Scripts
     protected static $config = [
         'ignoreFiles' => []
     ];
+
+    /**
+     * Subscribe to composer events
+     */
+    public static function getSubscribedEvents(): array
+    {
+        return [
+            PackageEvents::PRE_PACKAGE_UNINSTALL => 'onPrePackageUninstall',
+        ];
+    }
+
+    /**
+     * Handle package uninstall event
+     */
+    public static function onPrePackageUninstall(PackageEvent $event): void
+    {
+        $operation = $event->getOperation();
+        
+        if ($operation instanceof UninstallOperation) {
+            $package = $operation->getPackage();
+            
+            if ($package->getName() === 'kmi/ddev-commands-collection') {
+                static::$event = $event;
+                static::$composer = $event->getComposer();
+                static::$io = $event->getIO();
+                static::$fs = new Filesystem();
+                
+                if (static::initConfig() === 0) {
+                    static::removeFiles();
+                }
+            }
+        }
+    }
 
     /**
      * Initialize scripts
@@ -123,6 +160,93 @@ class Scripts
         if (!$statusCode) {
             static::copyFiles();
         }
+    }
+
+    /**
+     * Remove the TYPO3 command files from the project (reverse of copyFiles)
+     */
+    protected static function removeFiles(): void
+    {
+        static::$io->write('<fg=cyan>[DCC]</> Remove <options=bold>TYPO3 DDEV</> command files from project', false);
+        $countRemoved = 0;
+
+        // Check for custom commands to ignore (same logic as in copyFiles)
+        $commandsPath = static::$config['ddevDir'] . '/commands/';
+        $files = glob($commandsPath . '*/dcc-*');
+        $files[] = $commandsPath . 'dcc-config.sh';
+        
+        foreach($files as $filename) {
+            if(is_file($filename)) {
+                $fileContent = file_get_contents($filename);
+                $shouldFileBeIgnored = false;
+                
+                foreach (self::IGNORE_KEYWORDS as $keyword) {
+                    $shouldFileBeIgnored = (bool)strpos($fileContent, $keyword);
+                    if ($shouldFileBeIgnored) break;
+                }
+                
+                if ($shouldFileBeIgnored) {
+                    static::$config['ignoreFiles'][] = str_replace($commandsPath, '', $filename);
+                }
+            }
+        }
+
+        // Remove TYPO3 specific command files (reverse of what copyFiles does)
+        $distCommands = static::$config['distDir'] . '/typo3/';
+        
+        $files = glob($distCommands . '*/dcc-*');
+        $files[] = $distCommands . 'dcc-config.sh';
+        
+        foreach($files as $fullPathFilename) {
+            $relativePathFilename = str_replace($distCommands, '', $fullPathFilename);
+            
+            if (is_null(static::$config['ignoreFiles']) || !in_array($relativePathFilename, static::$config['ignoreFiles'])) {
+                $targetFilePath = static::$config['ddevDir'] . '/commands/' . $relativePathFilename;
+                
+                if (file_exists($targetFilePath)) {
+                    // Remove symlink or regular file
+                    if (is_link($targetFilePath)) {
+                        unlink($targetFilePath);
+                    } else {
+                        static::$fs->remove($targetFilePath);
+                    }
+                    $countRemoved++;
+                }
+            }
+        }
+
+        // Remove static general files (reverse of copyFiles)
+        $generalStaticFiles = [
+            'scripts',
+            'faq', 
+            'README.md',
+            '.gitignore'
+        ];
+        
+        foreach ($generalStaticFiles as $item) {
+            $itemPath = static::$config['ddevDir'] . '/commands/' . $item;
+            if (file_exists($itemPath)) {
+                static::$fs->remove($itemPath);
+                $countRemoved++;
+            }
+        }
+
+        // Remove host commands
+        $hostCommandPath = static::$config['ddevDir'] . '/commands/host/dcc-docker-deployment-update';
+        if (file_exists($hostCommandPath)) {
+            static::$fs->remove($hostCommandPath);
+            $countRemoved++;
+        }
+
+        $countIgnored = is_null(static::$config['ignoreFiles']) ? 0 : count(static::$config['ignoreFiles']);
+        $infoIgnored = is_null(static::$config['ignoreFiles']) ? '' : implode(', ', static::$config['ignoreFiles']);
+
+        $infoMessage = "<fg=green>$countRemoved</> file(s) removed";
+        if ($countIgnored) {
+            $infoMessage .= ", <fg=yellow>$countIgnored</> file(s) kept: $infoIgnored";
+        }
+
+        static::$io->write(" ($infoMessage)");
     }
 
     /**
