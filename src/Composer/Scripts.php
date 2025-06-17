@@ -183,7 +183,12 @@ class Scripts implements PluginInterface, EventSubscriberInterface
     {
         $statusCode = static::init($event);
         if (!$statusCode) {
-            static::copyFiles();
+            // Check if source files still exist (package might be in process of being removed)
+            if (is_dir(static::$config['distDir'])) {
+                static::copyFiles();
+            } else {
+                static::$io->write('<fg=yellow>[DCC]</> Package being removed, skipping file copy');
+            }
         }
     }
 
