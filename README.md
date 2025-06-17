@@ -10,17 +10,18 @@ The TYPO3 DDEV Commands Collection (DCC) automates recurring tasks in TYPO3 deve
 
 ### Available Commands
 
-| Befehl                    | Beschreibung                                      | Beispiel                            |
-|---------------------------|---------------------------------------------------|-------------------------------------|
-| `ddev init`               | Initialisiert eine komplette TYPO3-Installation   | `ddev init`                         |
-| `ddev cc`                 | Cache leeren (Kurzform)                           | `ddev cc` oder `ddev cc -g all`     |
-| `ddev console`            | TYPO3 Console-Befehle ausführen                   | `ddev console cache:flush`          |
-| `ddev composer:app`       | Composer im App-Verzeichnis ausführen             | `ddev composer:app install`         |
-| `ddev composer:deployment`| Composer im Deployment-Verzeichnis ausführen      | `ddev composer:deployment update`   |
-| `ddev sync`               | Datenbank vom Remote-System synchronisieren       | `ddev sync stage`                   |
-| `ddev theme`              | Frontend-Assets bauen                             | `ddev theme` oder `ddev theme watch`|
-| `ddev log:app`            | Applikations-Log anzeigen (mit Farbcodierung)     | `ddev log:app -f`                   |
-| `ddev release`            | Neue Version erstellen                            | `ddev release 1.2.3`                |
+| Command                    | Description                                               | Example                              |
+|--------------------------- |-----------------------------------------------------------|--------------------------------------|
+| `ddev init`                | Initializes a complete TYPO3 installation                 | `ddev init`                          |
+| `ddev cc`                  | Clears cache (short form)                                 | `ddev cc` or `ddev cc -g all`        |
+| `ddev console`             | Executes TYPO3 console commands                           | `ddev console cache:flush`           |
+| `ddev composer:app`        | Runs Composer in the app directory                        | `ddev composer:app install`          |
+| `ddev composer:deployment` | Runs Composer in the deployment directory                 | `ddev composer:deployment update`    |
+| `ddev sync`                | Synchronizes the database from the remote system          | `ddev sync stage`                    |
+| `ddev theme`               | Builds frontend assets                                    | `ddev theme` or `ddev theme watch`   |
+| `ddev log:app`             | Displays application log (with color coding)              | `ddev log:app -f`                    |
+| `ddev release`             | Creates a new version                                     | `ddev release 1.2.3`                 |
+
 
 ## Installation
 

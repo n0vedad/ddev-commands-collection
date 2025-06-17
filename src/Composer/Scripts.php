@@ -70,6 +70,8 @@ class Scripts implements PluginInterface, EventSubscriberInterface
     {
         return [
             PackageEvents::PRE_PACKAGE_UNINSTALL => 'onPrePackageUninstall',
+            PackageEvents::POST_PACKAGE_INSTALL => 'onPostPackageInstall',
+            PackageEvents::POST_PACKAGE_UPDATE => 'onPostPackageUpdate',
         ];
     }
 
@@ -98,8 +100,42 @@ class Scripts implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * Handle package uninstall event
+     * Handle package install event
      */
+    public static function onPostPackageInstall(PackageEvent $event): void
+    {
+        $package = $event->getOperation()->getPackage();
+        
+        if ($package->getName() === 'kmi/ddev-commands-collection') {
+            static::$event = $event;
+            static::$composer = $event->getComposer();
+            static::$io = $event->getIO();
+            static::$fs = new Filesystem();
+            
+            if (static::initConfig() === 0) {
+                static::copyFiles();
+            }
+        }
+    }
+
+    /**
+     * Handle package update event
+     */
+    public static function onPostPackageUpdate(PackageEvent $event): void
+    {
+        $package = $event->getOperation()->getTargetPackage();
+        
+        if ($package->getName() === 'kmi/ddev-commands-collection') {
+            static::$event = $event;
+            static::$composer = $event->getComposer();
+            static::$io = $event->getIO();
+            static::$fs = new Filesystem();
+            
+            if (static::initConfig() === 0) {
+                static::copyFiles();
+            }
+        }
+    }
     public static function onPrePackageUninstall(PackageEvent $event): void
     {
         $operation = $event->getOperation();
