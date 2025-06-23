@@ -29,15 +29,8 @@ The TYPO3 DDEV Commands Collection (DCC) automates recurring tasks in TYPO3 deve
 
 Add the following entries to your `composer.json` in the project root:
 
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/n0vedad/ddev-commands-collection"
-        }
-    ]
-}
+```bash
+composer config repositories.n0vedad vcs https://github.com/n0vedad/ddev-commands-collection
 ```
 
 ### Step 2: Install DCC
